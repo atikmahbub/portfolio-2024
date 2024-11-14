@@ -1,52 +1,86 @@
-import React, { useRef, useState } from 'react';
-import '../assets/styles/Contact.scss';
-// import emailjs from '@emailjs/browser';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import SendIcon from '@mui/icons-material/Send';
-import TextField from '@mui/material/TextField';
+import React, { useRef, useState } from "react";
+import "../assets/styles/Contact.scss";
+import emailjs from "@emailjs/browser";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import SendIcon from "@mui/icons-material/Send";
+import CircularProgress from "@mui/material/CircularProgress";
+import TextField from "@mui/material/TextField";
+import { Alert, AlertColor, Snackbar } from "@mui/material";
 
 function Contact() {
-
-  const [name, setName] = useState<string>('');
-  const [email, setEmail] = useState<string>('');
-  const [message, setMessage] = useState<string>('');
-
-  const [nameError, setNameError] = useState<boolean>(false);
-  const [emailError, setEmailError] = useState<boolean>(false);
-  const [messageError, setMessageError] = useState<boolean>(false);
-
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    message: "",
+  });
+  const [formErrors, setFormErrors] = useState({
+    name: false,
+    email: false,
+    message: false,
+  });
+  const [open, setOpen] = useState(false);
+  const [severity, setSeverity] = useState<AlertColor>("success");
+  const [message, setMessage] = useState<string>("");
+  const [loading, setLoading] = useState(false); // Loading state
   const form = useRef();
 
-  const sendEmail = (e: any) => {
+  const serviceId = process.env.REACT_APP_EMAIL_SERVICE_ID;
+  const templateId = process.env.REACT_APP_EMAIL_TEMPLATE_ID;
+  const publicKey = process.env.REACT_APP_EMAIL_PUBLIC_KEY;
+
+  // Handle input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setFormData({ ...formData, [id]: value });
+    setFormErrors({ ...formErrors, [id]: value === "" });
+  };
+
+  // Validate form inputs
+  const validateForm = () => {
+    const errors = {
+      name: formData.name === "",
+      email: formData.email === "",
+      message: formData.message === "",
+    };
+    setFormErrors(errors);
+    return !Object.values(errors).includes(true);
+  };
+
+  const sendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!serviceId || !templateId || !publicKey) return;
 
-    setNameError(name === '');
-    setEmailError(email === '');
-    setMessageError(message === '');
+    if (validateForm()) {
+      setLoading(true); // Start loading
+      const templateParams = {
+        from_name: formData.name,
+        to_name: "Atik",
+        email: formData.email,
+        message: formData.message,
+      };
 
-    /* Uncomment below if you want to enable the emailJS */
+      try {
+        await emailjs.send(serviceId, templateId, templateParams, publicKey);
+        setSeverity("success");
+        setMessage("Submitted successfully");
+        setFormData({ name: "", email: "", message: "" });
+      } catch (error) {
+        setSeverity("error");
+        setMessage("Something went wrong");
+      } finally {
+        setOpen(true);
+        setLoading(false); // End loading
+      }
+    }
+  };
 
-    // if (name !== '' && email !== '' && message !== '') {
-    //   var templateParams = {
-    //     name: name,
-    //     email: email,
-    //     message: message
-    //   };
-
-    //   console.log(templateParams);
-    //   emailjs.send('service_id', 'template_id', templateParams, 'api_key').then(
-    //     (response) => {
-    //       console.log('SUCCESS!', response.status, response.text);
-    //     },
-    //     (error) => {
-    //       console.log('FAILED...', error);
-    //     },
-    //   );
-    //   setName('');
-    //   setEmail('');
-    //   setMessage('');
-    // }
+  const handleClose = (
+    event: React.SyntheticEvent | Event,
+    reason?: string
+  ) => {
+    if (reason === "clickaway") return;
+    setOpen(false);
   };
 
   return (
@@ -54,61 +88,79 @@ function Contact() {
       <div className="items-container">
         <div className="contact_wrapper">
           <h1>Contact Me</h1>
-          <p>Got a project waiting to be realized? Let's collaborate and make it happen!</p>
+          <p>
+            Got a project waiting to be realized? Let's collaborate and make it
+            happen!
+          </p>
           <Box
             ref={form}
             component="form"
             noValidate
             autoComplete="off"
-            className='contact-form'
+            className="contact-form"
+            onSubmit={sendEmail}
           >
-            <div className='form-flex'>
+            <div className="form-flex">
               <TextField
                 required
-                id="outlined-required"
+                id="name"
                 label="Your Name"
                 placeholder="What's your name?"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                }}
-                error={nameError}
-                helperText={nameError ? "Please enter your name" : ""}
+                value={formData.name}
+                onChange={handleInputChange}
+                error={formErrors.name}
+                helperText={formErrors.name ? "Please enter your name" : ""}
               />
               <TextField
                 required
-                id="outlined-required"
+                id="email"
                 label="Email / Phone"
                 placeholder="How can I reach you?"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                }}
-                error={emailError}
-                helperText={emailError ? "Please enter your email or phone number" : ""}
+                value={formData.email}
+                onChange={handleInputChange}
+                error={formErrors.email}
+                helperText={
+                  formErrors.email
+                    ? "Please enter your email or phone number"
+                    : ""
+                }
               />
             </div>
             <TextField
               required
-              id="outlined-multiline-static"
+              id="message"
               label="Message"
               placeholder="Send me any inquiries or questions"
               multiline
               rows={10}
               className="body-form"
-              value={message}
-              onChange={(e) => {
-                setMessage(e.target.value);
-              }}
-              error={messageError}
-              helperText={messageError ? "Please enter the message" : ""}
+              value={formData.message}
+              onChange={handleInputChange}
+              error={formErrors.message}
+              helperText={formErrors.message ? "Please enter the message" : ""}
             />
-            <Button variant="contained" endIcon={<SendIcon />} onClick={sendEmail}>
-              Send
+            <Button
+              variant="contained"
+              endIcon={
+                loading ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <SendIcon />
+                )
+              }
+              onClick={sendEmail}
+              type="submit"
+            >
+              {loading ? "Sending..." : "Send"}
             </Button>
           </Box>
         </div>
       </div>
+      <Snackbar open={open} autoHideDuration={3000} onClose={handleClose}>
+        <Alert onClose={handleClose} severity={severity} sx={{ width: "100%" }}>
+          {message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 }
